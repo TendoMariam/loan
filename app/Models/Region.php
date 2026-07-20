@@ -2,23 +2,23 @@
 
 namespace App\Models;
 
-use Database\Factories\LoanProductFactory;
+use Database\Factories\RegionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class LoanProduct extends Model
+class Region extends Model
 {
-    /** @use HasFactory<LoanProductFactory> */
+    /** @use HasFactory<RegionFactory> */
     use HasFactory;
 
     protected $fillable = [
         'name',
-        'description',
+        'code',
     ];
 
-    public function loanApplications(): HasMany
+    public function branches(): HasMany
     {
-        return $this->hasMany(LoanApplication::class);
+        return $this->hasMany(Branche::class);
     }
 }

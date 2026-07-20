@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\LoanProduct;
 use App\Http\Requests\StoreLoanProductRequest;
 use App\Http\Requests\UpdateLoanProductRequest;
+use App\Models\LoanProduct;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -14,10 +15,50 @@ class LoanProductController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        return Inertia::render('loan-products/index', [
-            'loanProducts' => LoanProduct::orderBy('name')->get(),
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'has_description' => ['nullable', 'in:all,with,without'],
+            'sort' => ['nullable', 'in:name_asc,name_desc,newest,oldest'],
+        ]);
+
+        $search = $validated['search'] ?? null;
+        $hasDescription = $validated['has_description'] ?? 'all';
+        $sort = $validated['sort'] ?? 'name_asc';
+
+        $query = LoanProduct::query()
+            ->select(['id', 'name', 'description', 'created_at', 'updated_at'])
+            ->when($search, function ($builder, string $term) {
+                $builder->where(function ($subQuery) use ($term) {
+                    $subQuery
+                        ->where('name', 'like', "%{$term}%")
+                        ->orWhere('description', 'like', "%{$term}%");
+                });
+            })
+            ->when($hasDescription === 'with', function ($builder) {
+                $builder->whereNotNull('description')->where('description', '!=', '');
+            })
+            ->when($hasDescription === 'without', function ($builder) {
+                $builder->where(function ($subQuery) {
+                    $subQuery->whereNull('description')->orWhere('description', '');
+                });
+            });
+
+        match ($sort) {
+            'name_desc' => $query->orderByDesc('name'),
+            'newest' => $query->latest(),
+            'oldest' => $query->oldest(),
+            default => $query->orderBy('name'),
+        };
+
+        return Inertia::render('loanproduct', [
+            'loanProducts' => $query->get(),
+            'filters' => [
+                'search' => $search ?? '',
+                'has_description' => $hasDescription,
+                'sort' => $sort,
+            ],
         ]);
     }
 
